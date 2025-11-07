@@ -101,7 +101,7 @@ static void shearsort_omp(vector<vector<int>>& M, int threads){
 }
 
 // ---------- ShearSort alternativo (solo sort-row + transposición) ----------
-// Idea (pág. 2 del PDF): ordenar filas alternadas, transponer, ordenar filas, transponer…
+// Idea: ordenar filas alternadas, transponer, ordenar filas, destransponer…
 static void shearsort_transpose_omp(vector<vector<int>>& M, int threads){
     int n=(int)M.size();
     int rounds = (int)floor(log2(n)) + 1;
@@ -150,7 +150,7 @@ static int linear_search_seq(const vector<int>& a, int x){
     return -1;
 }
 
-// ---------- P-BSA bUsqueda binaria paralela por subsecuencias ----------
+// ---------- P-BSA: búsqueda binaria paralela por subsecuencias ----------
 // Si x cae dentro [inicio, fin], esa subsecuencia se convierte en el nuevo rango.
 static int pbsa_parallel(const vector<int>& a, int x, int threads){
     if(a.empty()) return -1;
@@ -177,9 +177,19 @@ static int pbsa_parallel(const vector<int>& a, int x, int threads){
             int e = (p==P-1) ? R : min(R, s + chunk - 1);
             if(s>R || e<L) continue;
 
-            // Comparo extremos
-            if(a[s]==x){ #pragma omp critical { found = s; } }
-            else if(a[e]==x){ #pragma omp critical { found = e; } }
+            // Comparo extremos (directivas en su propia línea)
+            if(a[s]==x){
+                #pragma omp critical
+                {
+                    found = s;
+                }
+            }
+            else if(a[e]==x){
+                #pragma omp critical
+                {
+                    found = e;
+                }
+            }
             else if(a[s] < x && x < a[e]){
                 // Este bloque "posee" a x -> será el siguiente rango
                 #pragma omp critical
@@ -188,7 +198,7 @@ static int pbsa_parallel(const vector<int>& a, int x, int threads){
                         newL = s; newR = e;
                         anyOwner = true;
                     } else {
-                        // unimos por seguridad si colindan solapes
+                        // unimos por seguridad si colindan/solapan
                         newL = min(newL, s);
                         newR = max(newR, e);
                     }
@@ -204,7 +214,7 @@ static int pbsa_parallel(const vector<int>& a, int x, int threads){
     return found;
 }
 
-// ---------- GeneraciOn de datos ----------
+// ---------- Generación de datos ----------
 static vector<vector<int>> random_matrix(int n, int lo, int hi, std::mt19937& g){
     vector<vector<int>> M(n, vector<int>(n));
     for(int i=0;i<n;++i) for(int j=0;j<n;++j) M[i][j]=rndi(lo,hi,g);
@@ -218,7 +228,7 @@ static vector<int> random_vector(int N, int lo, int hi, std::mt19937& g, bool so
     return a;
 }
 
-// ---------- metricas ----------
+// ---------- métricas ----------
 int main(int argc, char** argv){
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
@@ -279,13 +289,13 @@ int main(int argc, char** argv){
     auto Aunord = random_vector(Nvec, 0, 2'000'000, g, /*sorted*/false);
     int target2 = Aunord[rndi(0, (int)Aunord.size()-1, g)];
 
-    // BSA sobre no ordenado 
+    // BSA sobre no ordenado (ilustrativo: no válido)
     t.start();
     int bogus = binary_search_seq(Aunord, target2);
     double t_bogus = t.stop();
-    cout << "[BSA] Secuencial (NO ordenado): " << t_bogus << " s  | (resultado NO válido; se muestra solo a modo ilustrativo)\n";
+    cout << "[BSA] Secuencial (NO ordenado): " << t_bogus << " s  | (resultado NO válido)\n";
 
-    // P-BSA sobre no ordenado 
+    // P-BSA sobre no ordenado (no aplica)
     t.start();
     int np = pbsa_parallel(Aunord, target2, th);
     double t_np = t.stop();
